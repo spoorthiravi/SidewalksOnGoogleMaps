@@ -1,0 +1,53 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <meta name="viewport" content="initial-scale=1.0, user-scalable=no">
+    <meta charset="utf-8">
+    <title>Simple Polylines</title>
+    <style>
+      html, body, #map-canvas {
+        height: 100%;
+        margin: 0px;
+        padding: 0px
+      }
+    </style>
+    <script src="jquery-2.1.1.js"></script>
+    <script src="https://maps.googleapis.com/maps/api/js?v=3.exp"></script>
+<script>
+
+$(document).ready(function() {
+    $.ajax({
+        type: "GET",
+        url: "Split7Vertices_1.csv",
+        dataType: "text",
+        success: function(data) {processData(data);}
+     });
+});
+
+function processData(allText) {
+    var allTextLines = allText.split(/\r\n|\n/);
+    var headers = allTextLines[0].split(',');
+    alert(allTextLines.length)
+    var lines = [[]];
+
+    for (var i=1; i<allTextLines.length; i++) {
+        var data = allTextLines[i].split(',');
+        if (data.length == headers.length) {
+
+            var tarr = [];
+            /*for (var j=0; j<headers.length; j++) {
+                tarr.push(headers[j]+":"+data[j]);
+            }*/
+            tarr.push(data[0]+","+data[1])
+            lines.push(tarr);
+        }
+    }
+    alert(lines[1,1]);
+    alert(lines[20]);
+}
+</script>
+</head>
+<body>
+    <div id="map-canvas"></div>
+</body>
+</html>

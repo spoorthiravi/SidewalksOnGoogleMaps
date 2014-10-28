@@ -1,0 +1,200 @@
+
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd">
+<html xmlns="http://www.w3.org/1999/xhtml">
+<head>
+<meta http-equiv="Content-Type" content="text/html; charset=utf-8" />
+<title>Untitled Document</title>
+
+     <style>
+       html, body, #map_canvas {
+         margin: 0;
+         padding: 0;
+         height: 100%;
+       }
+     </style>
+
+
+<script src="https://maps.googleapis.com/maps/api/js?libraries=geometry&sensor=false"></script>
+<script type="text/javascript" src="http://maps.googleapis.com/maps/api/js?libraries=places&sensor=false"></script>
+
+<script src="http://ajax.googleapis.com/ajax/libs/jquery/1.10.1/jquery.min.js"></script>
+
+<script type="text/javascript">         
+
+var locations = [
+["Hemyock","50.915515,-3.227937","http://maps.google.com/mapfiles/ms/icons/blue.png","Hemyock"],
+["Chard","50.869792,-2.963316","http://maps.google.com/mapfiles/ms/icons/blue.png","Chard"],
+["Bridgwater","51.127889,-3.003632","http://maps.google.com/mapfiles/ms/icons/blue.png","Bridgwater"],
+["Torquay","50.461921,-3.525315","http://maps.google.com/mapfiles/ms/icons/blue.png","Torquay"],
+["Plymouth","50.375457,-4.142656","http://maps.google.com/mapfiles/ms/icons/blue.png","Plymouth"],
+["Exeter","50.718412,-3.533899","http://maps.google.com/mapfiles/ms/icons/blue.png","Exeter"],
+["Bristol","51.454513,-2.58791","http://maps.google.com/mapfiles/ms/icons/blue.png","Bristol"],
+];
+
+var geocoder = null;
+var map = null;
+var customerMarker = null;
+var gmarkers = [];
+var closest = [];
+var directionsDisplay = new google.maps.DirectionsRenderer();;
+var directionsService = new google.maps.DirectionsService();
+
+var map;
+
+	function initialize() {
+	// alert("init");
+  	geocoder = new google.maps.Geocoder();
+  	map = new google.maps.Map(document.getElementById('map'), 
+        {       
+            zoom: 7,       
+            center: new google.maps.LatLng(51.577114, -3.57647),       
+            mapTypeId: google.maps.MapTypeId.ROADMAP,  
+        });
+    var endpoint = "Yeovil, United Kingdom";
+    var start = "Tavistock, United Kingdom";
+     
+  	var marker, i;      
+  	var bounds = new google.maps.LatLngBounds();
+
+  	for (i = 0; i < locations.length; i++) {         
+        var coordStr = locations[i][1];
+	    var coords = coordStr.split(",");
+
+	    var pt = new google.maps.LatLng(parseFloat(coords[0]),parseFloat(coords[1]));
+            bounds.extend(pt);
+            marker = new google.maps.Marker({         
+                            position: pt,         
+                            map: map,
+			    icon: locations[i][2],
+                            title: locations[i][0]
+                            });
+
+            gmarkers.push(marker);
+            google.maps.event.addListener(marker, 'click', ( function(marker, i) {
+             return function() 
+            {
+            	getDirections(customerMarker.getPosition(),locations[i][3],endpoint);         
+            }      
+        	}
+          )
+        	(marker, i));
+
+    codeAddress();
+ 
+    }
+    map.fitBounds(bounds);
+
+
+	}
+
+
+      function codeAddress() {
+        var start = "Tavistock, United Kingdom";
+        geocoder.geocode( { 'address': start}, function(results, status) {
+          if (status == google.maps.GeocoderStatus.OK) {
+            map.setCenter(results[0].geometry.location);
+	    if (customerMarker) customerMarker.setMap(null);
+            customerMarker = new google.maps.Marker({
+                map: map,
+                position: results[0].geometry.location
+            });
+	    closest = findClosestN(results[0].geometry.location,10);
+            // get driving distance
+            closest = closest.splice(0,1);
+            calculateDistances(results[0].geometry.location, closest,1);
+          } else {
+            alert('Geocode was not successful for the following reason: ' + status);
+          }
+        });
+      }
+
+function findClosestN(pt,numberOfResults) {
+   var closest = [];
+   for (var i=0; i<gmarkers.length;i++) {
+     gmarkers[i].distance = google.maps.geometry.spherical.computeDistanceBetween(pt,gmarkers[i].getPosition());
+     gmarkers[i].setMap(null);
+     closest.push(gmarkers[i]);
+   }
+   closest.sort(sortByDist);
+   return closest;
+}
+
+function sortByDist(a,b) {
+   return (a.distance- b.distance)
+}
+     
+function calculateDistances(pt,closest,numberOfResults) {
+  var service = new google.maps.DistanceMatrixService();
+  var request =    {
+      origins: [pt],
+      destinations: [],
+      travelMode: google.maps.TravelMode.DRIVING,
+      unitSystem: google.maps.UnitSystem.IMPERIAL,
+      avoidHighways: false,
+      avoidTolls: false
+    };
+  for (var i=0; i<closest.length; i++) request.destinations.push(closest[i].getPosition());
+  service.getDistanceMatrix(request, function (response, status) {
+    if (status != google.maps.DistanceMatrixStatus.OK) {
+      alert('Error was: ' + status);
+    } else {
+      var origins = response.originAddresses;
+      var destinations = response.destinationAddresses;
+      var outputDiv = document.getElementById('side_bar');
+      outputDiv.innerHTML = '';
+
+      var results = response.rows[0].elements;
+      for (var i = 0; i < numberOfResults; i++) {
+        closest[i].setMap(map);
+        outputDiv.innerHTML += "Nearest Coach: <a href='javascript:google.maps.event.trigger(closest["+i+"],\"click\");'>"+closest[i].title + '</a>';
+      }
+    }
+  });
+}
+
+function getDirections(origin, destination, midpoint) {
+var distanceInput = document.getElementById("distance");
+var time = document.getElementById("time");
+  var request = {
+      origin:destination,
+      destination:midpoint,
+      waypoints: 
+          [{
+              location:origin,
+              stopover:false
+            }],
+      travelMode: google.maps.DirectionsTravelMode.DRIVING
+  };
+  directionsService.route(request, function(response, status) {
+    if (status == google.maps.DirectionsStatus.OK) {
+      directionsDisplay.setMap(map);
+      var mins = Math.round(response.routes[0].legs[0].duration.value / 60);
+      time.value = mins;
+      directionsDisplay.setDirections(response);
+      distanceInput.value = Math.round(response.routes[0].legs[0].distance.value / 1609.344);
+    }
+  });
+}
+
+google.maps.event.addDomListener(window, 'load', initialize);
+</script> 
+</head>
+<body>
+
+<table border="1"><tr><td>
+     <div id="map" style="height: 600px; width:800px;"></div>
+</td></tr><tr><td>
+     <div id="side_bar"></div>
+</td></tr></table>
+ 
+    Mileage<br/>
+    <input type="text" name="distance" id="distance" value="" /><br/><br/>
+
+    Time<br/>
+    <input type="text" name="time" id="time" value="" /><br/><br/>
+    
+    
+  </form>
+
+</body>
+</html>
