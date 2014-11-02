@@ -1,0 +1,329 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <meta name="viewport" content="initial-scale=1.0, user-scalable=no">
+    <meta charset="utf-8">
+    <title>Simple Polylines</title>
+    <style>
+      html, body, #map-canvas {
+        height: 100%;
+        margin: 0px;
+        padding: 0px
+      }
+       .controls {
+        margin-top: 16px;
+        border: 1px solid transparent;
+        border-radius: 2px 0 0 2px;
+        box-sizing: border-box;
+        -moz-box-sizing: border-box;
+        height: 32px;
+        outline: none;
+        box-shadow: 0 2px 6px rgba(0, 0, 0, 0.3);
+      }
+      #submit{
+        margin-top: 16px;
+        border: 1px solid transparent;
+        border-radius: 2px 0 0 2px;
+        box-sizing: border-box;
+        -moz-box-sizing: border-box;
+        height: 32px;
+        outline: none;
+        width: 100px;
+        box-shadow: 0 2px 6px rgba(0, 0, 0, 0.3);
+      }
+
+      #userInput {
+        background-color: #fff;
+        padding: 0 11px 0 13px;
+        width: 400px;
+        font-family: Roboto;
+        font-size: 15px;
+        font-weight: 300;
+        text-overflow: ellipsis;
+      }
+
+      #userInput:focus {
+        border-color: #4d90fe;
+        margin-left: -1px;
+        padding-left: 14px;  /* Regular padding-left + 1. */
+        width: 401px;
+      }
+
+      .pac-container {
+        font-family: Roboto;
+      }
+
+      #type-selector {
+        color: #fff;
+        background-color: #4d90fe;
+        padding: 5px 11px 0px 11px;
+      }
+
+      #type-selector label {
+        font-family: Roboto;
+        font-size: 13px;
+        font-weight: 300;
+      }
+
+    </style>
+    <script src="jquery-2.1.1.js"></script>
+    <script src="jquery.csv.js"></script>
+    <script src="https://maps.googleapis.com/maps/api/js?v=3.exp"></script>
+
+<script>
+var input = 500;
+
+var clickedMarkers = [];
+var clickedCount = 0;
+  function initialize() {
+
+    var filePath = "http://www.prism.gatech.edu/~sravi40/SidewalksOnGoogleMaps/MidtownMapWithAttributes.csv";
+    xmlhttp = new XMLHttpRequest();
+    xmlhttp.open("GET",filePath,false);
+    xmlhttp.send(null);
+    var fileContent = xmlhttp.responseText;
+    var fileArray = fileContent.split(',')
+  
+    var mapOptions = {
+      zoom: 15,
+      //center: new google.maps.LatLng(33.7550,-84.3900),
+      center: new google.maps.LatLng(33.778231336603724,-84.38113508226229),
+      mapTypeId: google.maps.MapTypeId.TERRAIN
+    };
+
+    var map = new google.maps.Map(document.getElementById('map-canvas'),mapOptions);
+    map.markers = [];
+    for(var j = 0; j < fileArray.length; j = j+6){
+
+      var latlng1 = new google.maps.LatLng(fileArray[j],fileArray[j+1]);
+      var latlng2 = new google.maps.LatLng(fileArray[j+2],fileArray[j+3]);
+
+      var marker1 = new google.maps.Marker({
+        position: latlng1,
+        map: map,
+        title: j.toString(),
+        icon: getCircle()
+      });
+
+      var marker2 = new google.maps.Marker({
+        position: latlng2,
+        map: map,
+        title: (j+1).toString(),
+        icon: getCircle()
+      });
+
+      var flightPlanCoordinates = [
+        new google.maps.LatLng(fileArray[j],fileArray[j+1]),
+        new google.maps.LatLng(fileArray[j+2],fileArray[j+3])
+      ];
+
+      var flightPath = new google.maps.Polyline({
+        path: flightPlanCoordinates,
+        geodesic: true,
+        strokeColor: '#FF0000',
+        strokeOpacity: 1.0,
+        strokeWeight: 2
+      });
+
+      flightPath.isEdgePresent = fileArray[j+4];
+      flightPath.isSidewalk = fileArray[j+5];
+      
+
+      if(flightPath.isSidewalk == 1 && flightPath.isEdgePresent == 0){
+          flightPath.setOptions({strokeColor: 'black'});
+      }
+
+      if(flightPath.isSidewalk == 0 && flightPath.isEdgePresent == 1){
+          flightPath.setOptions({strokeColor: 'green'});
+      }
+
+      flightPath.setMap(map);
+      marker1.setMap(map);
+      marker2.setMap(map);
+      map.markers.push(marker1);
+      map.markers.push(marker2);
+
+      google.maps.event.addListener(flightPath, 'click', function() {
+        alert(this.getPath().getArray().toString());
+        this.setOptions({strokeColor:'blue'});
+      });
+
+      google.maps.event.addListener(marker1, 'click', function(event){
+        find_closest_marker(event);
+        //closest = findClosestN(event.latLng,10);
+        findAllPointsWithinRadius(event.latLng,input);
+      });
+    
+      google.maps.event.addListener(marker2, 'click', function(event){
+        find_closest_marker(event);
+        //closest = findClosestN(event.latLng,10);
+        findAllPointsWithinRadius(event.latLng,input);
+      });
+
+    }
+
+    map.controls[google.maps.ControlPosition.RIGHT_BOTTOM].push(
+     document.getElementById('legend'));
+
+    function rad(x) {
+      return x*Math.PI/180;
+    }
+
+    function find_closest_marker(event) {
+      clickedCount = clickedCount + 1;
+      clickedMarkers.push(event.latLng);
+      alert("in find_closest_marker");
+      var lat = event.latLng.lat();
+      var lng = event.latLng.lng();
+      var R = 6371; // radius of earth in km
+      var distances = [];
+      var closestMarkers = []
+      var closest = -1;
+      for( i=0;i<map.markers.length; i++ ) {
+        var mlat = map.markers[i].getPosition().lat();
+        var mlng = map.markers[i].getPosition().lng();
+        var dLat  = rad(mlat - lat);
+        var dLong = rad(mlng - lng);
+        var episilon = 0.0000001;
+        var a = Math.sin(dLat/2) * Math.sin(dLat/2) +
+            Math.cos(rad(lat)) * Math.cos(rad(lat)) * Math.sin(dLong/2) * Math.sin(dLong/2);
+        var c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
+        var d = R * c;
+        distances[i] = d;
+        if ( closest == -1 || d < distances[closest] && Math.abs(dLat) > episilon && Math.abs(dLong) > episilon) {
+            closest = i;
+        }
+      }
+      map.markers[closest].setIcon('https://www.google.com/mapfiles/marker_green.png');
+
+      alert("clickedCount = " + clickedCount);
+      if(clickedCount >= 2){
+        getDirections(clickedMarkers[0],clickedMarkers[clickedCount-1]);
+      }
+    }
+
+
+
+    function findClosestN(pt,numberOfResults) {
+      alert("in closest");
+      var closest = [];
+      for (var i=0; i<map.markers.length;i++) {
+          map.markers[i].distance = google.maps.geometry.spherical.computeDistanceBetween(pt,map.markers[i].getPosition());
+          map.markers[i].setMap(null);
+          closest.push(map.markers[i]);
+      }
+      closest.sort(sortByDist);
+      alert("got n point success");
+      var nClosestPoints = closest.splice(0,numberOfResults);
+      for (var i = 0; i < nClosestPoints.length; i++) {
+        nClosestPoints[i].setIcon('https://www.google.com/mapfiles/marker_green.png');
+      }
+      return closest;
+    }
+
+    function sortByDist(a,b) {
+      return (a.distance - b.distance);
+    }
+
+
+    function findAllPointsWithinRadius(point,radius){
+      alert("in findAllPointsWithinRadius");
+      var pointsWithinRadius = [];
+      var pointDistances = [];
+      for (var i=0; i<map.markers.length;i++) {
+          map.markers[i].distance = google.maps.geometry.spherical.computeDistanceBetween(point,map.markers[i].getPosition());
+          //map.markers[i].setMap(null);
+          pointDistances.push(map.markers[i]);
+      }
+      pointDistances.sort(sortByDist);
+      for (var i = 0; i < pointDistances.length; i++) {
+        if(pointDistances[i].distance < radius){
+          pointsWithinRadius.push(pointDistances[i]);
+        }
+        
+      }
+      alert(pointsWithinRadius.length);
+      for(var j = 0; j < pointsWithinRadius.length; j++){
+        pointsWithinRadius[j].setIcon('https://www.google.com/mapfiles/marker_green.png');
+      }
+
+    }
+
+    function getDirections(origin, destination) {
+      alert("In getDirections");
+      var directionsDisplay = new google.maps.DirectionsRenderer();
+      var directionsService = new google.maps.DirectionsService();
+      var request = {
+        origin:origin,
+        destination:destination,
+        waypoints: 
+          [{
+              location:origin,
+              stopover:false
+            }],
+        travelMode: google.maps.DirectionsTravelMode.WALKING
+      };
+      directionsService.route(request, function(response, status) {
+        if (status == google.maps.DirectionsStatus.OK) {
+          directionsDisplay.setMap(map);
+          directionsDisplay.setDirections(response);
+        }
+      });
+    }
+
+  }
+
+    function getCircle() {
+      return {
+        path: google.maps.SymbolPath.CIRCLE,
+        fillColor: 'blue',
+        fillOpacity: 1,
+        strokeColor: 'blue',
+        strokeWeight: .5
+      };
+    }
+
+
+   
+
+    google.maps.event.addDomListener(window, 'load', initialize);
+    
+
+    function displayOutput() {
+            input = document.getElementById("userInput").value;
+            if (input.length === 0) {
+                alert("Please enter a valid input");
+                return;
+            }
+           //document.getElementById("map-canvas").innerHTML = "You have entered " + input;
+        }
+
+  </script>
+
+
+
+</head>
+
+<style>
+  #legend {
+    background: white;
+    padding: 10px;
+  }
+</style>
+
+<body>
+  <div id="legend">My first legend!
+</div>
+
+
+  <input type="text" id="userInput" class="controls" autofocus value = "Enter the radius in meteres" />
+  <!--<input type="text" id="userInput" class="controls" type="text" placeholder="Enter the radius in meteres">-->
+  <input type="submit" id="submit" value="Submit" onclick="displayOutput()" />
+  <form>
+  <input type="checkbox" name="includeExistingSidewalks" value="Bike">includeExistingSidewalks<br>
+  <input type="checkbox" name="includeAllExiSidewalks" value="Car">includeAllExistingSidewalks 
+  </form>
+  <div id="map-canvas"></div>
+  </div>
+</body>
+</html>

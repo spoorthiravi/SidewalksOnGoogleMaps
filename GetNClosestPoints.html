@@ -76,7 +76,16 @@
         alert(this.getPath().getArray().toString());
         this.setOptions({strokeColor:'blue'});
       });
-      google.maps.event.addListener(marker1, 'click', find_closest_marker); /*{
+
+      google.maps.event.addListener(marker1, 'click', find_closest_marker);
+
+      /*function(){
+        closest = findClosestN(event.latLng,10);
+        for(var s = 0; s < 10; s++){
+          closest[s].setIcon('https://www.google.com/mapfiles/marker_green.png');
+        }
+
+      }); {
         //LatLng position = marker1.getPosition();
         //alert('Point clicked!');
         //alert(position.latitude);
@@ -84,7 +93,14 @@
         alert(this.getPosition().lat() + "," + this.getPosition().lng());
         find_closest_marker(event);
     });*/
-      google.maps.event.addListener(marker2, 'click', find_closest_marker);/*{
+      google.maps.event.addListener(marker2, 'click', find_closest_marker);
+
+      /*function(){
+          closest = findClosestN(event.latLng,10);
+          for(var s = 0; s < 10; s++){
+            closest[s].setIcon('https://www.google.com/mapfiles/marker_green.png');
+          }
+      });{
       //LatLng position = marker2.getPosition();
         //alert('Point clicked!');
         //alert(marker2.position);
@@ -104,11 +120,12 @@
 
     function find_closest_marker( event ) {
       alert(event.latLng);
-      alert(event.latLng.lat() + "," + event.latLng.lng());
+      //alert(event.latLng.lat() + "," + event.latLng.lng());
       var lat = event.latLng.lat();
       var lng = event.latLng.lng();
       var R = 6371; // radius of earth in km
       var distances = [];
+      var closestMarkers = []
       var closest = -1;
       for( i=0;i<map.markers.length; i++ ) {
         var mlat = map.markers[i].getPosition().lat();
@@ -121,14 +138,40 @@
         var c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
         var d = R * c;
         distances[i] = d;
+        map.markers[i].distance = google.maps.geometry.spherical.computeDistanceBetween(event.latLng,map.markers[i].getPosition());
+        closestMarkers.push(map.markers[i]);
         if ( closest == -1 || d < distances[closest] && Math.abs(dLat) > episilon && Math.abs(dLong) > episilon) {
             closest = i;
         }
       }
       alert(closest);
       alert(map.markers[closest].title);
+      closestMarkers.sort(sortByDist);
+      alert("got n point success");
+      var nClosestPoints = closestMarkers.splice(0,10);
+      for (var i = 0; i < nClosestPoints.length; i++) {
+        nClosestPoints[i].setIcon('https://www.google.com/mapfiles/marker_green.png');
+      };
       //map.markers[closest].setOptions({strokeColor:'black',fillColor: 'black'});
       map.markers[closest].setIcon('https://www.google.com/mapfiles/marker_green.png');
+    }
+
+
+   /* function findClosestN(pt,numberOfResults) {
+      alert("in closest");
+      var closest = [];
+      for (var i=0; i<map.markers.length;i++) {
+          map.markers[i].distance = google.maps.geometry.spherical.computeDistanceBetween(pt,map.markers[i].getPosition());
+          //map.markers[i].setMap(null);
+          closest.push(map.markers[i]);
+      }
+      closest.sort(sortByDist);
+      alert(closest.length);
+      return closest;
+    }*/
+
+    function sortByDist(a,b) {
+      return (a.distance - b.distance);
     }
 
   }
