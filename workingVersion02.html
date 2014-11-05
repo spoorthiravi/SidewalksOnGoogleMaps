@@ -32,6 +32,7 @@
 
 <script>
   var radius = 500;
+  var numOfNeighbors = 0;
   var clickedCount = 0;
   var clickedPolylineCount = 0;
   var map = null;
@@ -41,6 +42,7 @@
   var selectedMarkers = [];
   var polylinesList = [];
   var roads = {};
+  var overlayMarkers = [];
 
   function initialize(){
     alert("entered initialize");
@@ -61,14 +63,14 @@
     map.markers = [];
     var markerTitle = 0;
     for(var j = 0; j < fileArray.length; j = j+6){
-      var marker1;
-      var marker2;
+      //var marker1;
+      //var marker2;
       var tempMarker1 = -1;
       var tempMarker2 = -1;
       var latlng1 = new google.maps.LatLng(fileArray[j],fileArray[j+1]);
       var latlng2 = new google.maps.LatLng(fileArray[j+2],fileArray[j+3]);
 
-      if(map.markers.length != 0){
+      /*if(map.markers.length != 0){
         tempMarker1 = markersListContains(map.markers,latlng1);
         if(tempMarker1 != -1){
           marker1 = map.markers[tempMarker1];
@@ -82,8 +84,8 @@
           map.markers.push(marker1);
         marker1.setMap(map);
         }
-      }else{
-        marker1 = new google.maps.Marker({
+      }else{*/
+        var marker1 = new google.maps.Marker({
             position: latlng1,
             map: map,
             title: markerTitle.toString(),
@@ -92,7 +94,7 @@
         map.markers.push(marker1);
         marker1.setMap(map);
 
-      }
+     /* }
 
       if(map.markers.length != 0){
         tempMarker2 = markersListContains(map.markers,latlng2);
@@ -108,8 +110,8 @@
           map.markers.push(marker2);
           marker2.setMap(map);
         }
-      }else{
-        marker2 = new google.maps.Marker({
+      }else{*/
+        var marker2 = new google.maps.Marker({
             position: latlng2,
             map: map,
             title: (markerTitle+1).toString(),
@@ -117,7 +119,7 @@
           });
         map.markers.push(marker2);
         marker2.setMap(map);
-      }
+     // }
 
       markerTitle == markerTitle + 1;
       var flightPlanCoordinates = [
@@ -164,24 +166,18 @@
       });
 
       google.maps.event.addListener(marker1, 'click', function(event){
+        alert("clicked marker " + marker1.title);
         selectedMarkers.push(marker1);
+        find_closest_marker(event);
       });
     
       google.maps.event.addListener(marker2, 'click', function(event){
+        alert("clicked marker " + marker2.title);
         selectedMarkers.push(marker2);
+        find_closest_marker(event);
       });
 
     } // end of for 
-
-
-
-    var size = 0;
-    var elements = [];
-    for(var i in roads){
-      size++;
-      elements.push(i);
-    }
-    alert("size = " + size);
    
     var controlDiv = document.createElement('DIV');
     controlDiv.id = "controls";
@@ -212,7 +208,7 @@
     };
 
     google.maps.event.addDomListener(controlButton, 'click', onClick);
-    map.controls[google.maps.ControlPosition.BOTTOM_RIGHT].push(controlDiv);
+    map.controls[google.maps.ControlPosition.TOP_RIGHT].push(controlDiv);
 
 
     controlDiv.style.padding = '5px';
@@ -223,7 +219,7 @@
     // Create an input field
     var controlInput = document.createElement('INPUT');
     controlInput.id = "neighbors";
-    controlInput.name = "N";
+    controlInput.name = "neighbors";
     controlInput.value = "";
 
     // Create a label
@@ -242,44 +238,14 @@
     controlDiv.appendChild(controlNDiv);
     
     var onClickN = function() {
-        number = $("#N").val();
-        alert("You entered: '" + number + "', map center is at " + map.getCenter());
+        numOfNeighbors = $("#neighbors").val();
+        alert("You entered: '" + numOfNeighbors + "', map center is at " + map.getCenter());
     };
 
     google.maps.event.addDomListener(controlButton, 'click', onClickN);
     //map.controls[google.maps.ControlPosition.BOTTOM_RIGHT].push(controlDiv);
     /*********************************************************************/
 
-    var controlForm = document.createElement('FORM');
-    controlForm.id = "formA";
-    controlForm.name = "formA";
-
-                           
-    // Create an input field
-    var controlFormInput = document.createElement('INPUT');
-    controlFormInput.type="radio";
-    controlFormInput.id = "connectivity";
-    controlFormInput.name = "radioButton";
-    controlFormInput.value = "1";
-    controlFormInput.text = "connectivity";
-
-    var controlLabel = document.createElement('label');
-    controlLabel.innerHTML = 'Select For Calculating Connectivity';
-    
-
-    // Append everything to the wrapper div
-    
-    controlForm.appendChild(controlFormInput);
-    controlForm.appendChild(controlLabel);
-
-
-    map.controls[google.maps.ControlPosition.TOP_RIGHT].push(controlForm);
-    google.maps.event.addDomListener(controlButton, 'click', onClickConnectivity);
-
-    var onClickConnectivity = function() {
-        connectivity = $("#connectivity").val();
-        alert("You entered: '" + connectivity + "', map center is at " + map.getCenter());
-    };
 
 
 /***********************************************************/
@@ -325,6 +291,83 @@
     clearMapText.innerHTML = '<b>Clear Map</b>';
     clearMapUI.appendChild(clearMapText);
 
+
+    var connectivityButton = document.createElement('div');
+    connectivityButton.style.backgroundColor = 'white';
+    connectivityButton.style.borderStyle = 'solid';
+    connectivityButton.style.borderWidth = '2px';
+    connectivityButton.style.cursor = 'pointer';
+    connectivityButton.style.textAlign = 'center';
+    connectivityButton.title = 'Click to set Home to the current center';
+    controlDiv.appendChild(connectivityButton);
+
+    // Set CSS for the control interior
+    var connectivityText = document.createElement('div');
+    connectivityText.style.fontFamily = 'Arial,sans-serif';
+    connectivityText.style.fontSize = '12px';
+    connectivityText.style.paddingLeft = '4px';
+    connectivityText.style.paddingRight = '4px';
+    connectivityText.innerHTML = '<b>Select for calculating Connectivity</b>';
+    connectivityButton.appendChild(connectivityText);
+
+    var routeButton = document.createElement('div');
+    routeButton.style.backgroundColor = 'white';
+    routeButton.style.borderStyle = 'solid';
+    routeButton.style.borderWidth = '2px';
+    routeButton.style.cursor = 'pointer';
+    routeButton.style.textAlign = 'center';
+    routeButton.title = 'Click to set Home to the current center';
+    controlDiv.appendChild(routeButton);
+
+    // Set CSS for the control interior
+    var routeText = document.createElement('div');
+    routeText.style.fontFamily = 'Arial,sans-serif';
+    routeText.style.fontSize = '12px';
+    routeText.style.paddingLeft = '4px';
+    routeText.style.paddingRight = '4px';
+    routeText.innerHTML = '<b>Select for finding route</b>';
+    routeButton.appendChild(routeText);
+
+    var nClosestButton = document.createElement('div');
+    nClosestButton.style.backgroundColor = 'white';
+    nClosestButton.style.borderStyle = 'solid';
+    nClosestButton.style.borderWidth = '2px';
+    nClosestButton.style.cursor = 'pointer';
+    nClosestButton.style.textAlign = 'center';
+    nClosestButton.title = 'Click to set Home to the current center';
+    controlDiv.appendChild(nClosestButton);
+
+    // Set CSS for the control interior
+    var nClosestText = document.createElement('div');
+    nClosestText.style.fontFamily = 'Arial,sans-serif';
+    nClosestText.style.fontSize = '12px';
+    nClosestText.style.paddingLeft = '4px';
+    nClosestText.style.paddingRight = '4px';
+    nClosestText.innerHTML = '<b>Select for finding n closest neighbors</b>';
+    nClosestButton.appendChild(nClosestText);
+
+    google.maps.event.addDomListener(routeButton, 'click', function() {
+      if(clickedCount >= 2){
+        getDirections(clickedMarkers[0],clickedMarkers[clickedCount-1]);
+      }else{
+        alert("first select two or more points");
+      }
+    });
+
+    google.maps.event.addDomListener(nClosestButton, 'click', function() {
+      if(numOfNeighbors != 0 && clickedCount >= 1){
+        findClosestN(clickedMarkers[clickedCount-1],numOfNeighbors);
+      }else{
+        alert("Please select a point first and enter number of neighbors");
+      }
+    });
+
+
+    google.maps.event.addDomListener(connectivityButton, 'click', function() {
+      alert("enter radius");
+      
+    });
+
     google.maps.event.addDomListener(nonExistingSidewalkUI, 'click', function() {
     alert("clicked nonExistingSidewalkUI");
     if(includeNotExistantSidewalks == 1)
@@ -336,7 +379,7 @@
     // Setup the click event listener for Set Home:
     // Set the control's home to the current Map center.
     google.maps.event.addDomListener(clearMapUI, 'click', function() {
-    clearMarkers();
+      clearMarkers();
     });
 
     var homeControlDiv = document.createElement('div');
@@ -519,7 +562,7 @@ function findClosestN(pt,numberOfResults) {
       var closest = [];
       for (var i=0; i<map.markers.length;i++) {
           map.markers[i].distance = google.maps.geometry.spherical.computeDistanceBetween(pt,map.markers[i].getPosition());
-          map.markers[i].setMap(null);
+          //map.markers[i].setMap(null);
           closest.push(map.markers[i]);
       }
       closest.sort(sortByDist);
@@ -527,6 +570,7 @@ function findClosestN(pt,numberOfResults) {
       var nClosestPoints = closest.splice(0,numberOfResults);
       for (var i = 0; i < nClosestPoints.length; i++) {
         nClosestPoints[i].setIcon('https://www.google.com/mapfiles/marker_green.png');
+        overlayMarkers.push(nClosestPoints[i]);
       }
       return closest;
     }
@@ -556,6 +600,7 @@ function findClosestN(pt,numberOfResults) {
       for(var j = 0; j < pointsWithinRadius.length; j++){
         pointsWithinRadius[j].setIcon('https://www.google.com/mapfiles/marker_green.png');
         selectedMarkers.push(pointsWithinRadius[j]);
+        overlayMarkers.push(pointsWithinRadius[j]);
       }
 
     }
@@ -586,10 +631,43 @@ function findClosestN(pt,numberOfResults) {
 
     // Removes the markers from the map, but keeps them in the array.
   function clearMarkers() {
-    for (var i = 0; i < selectedMarkers.length; i++) {
-        selectedMarkers[i].setMap(null);
+    alert("selectedMarkers length =" + selectedMarkers.length);
+    for (var i = 0; i < overlayMarkers.length; i++) {
+        overlayMarkers[i].setMap(null);
       }
   }
+
+
+  function find_closest_marker(event) {
+      clickedCount = clickedCount + 1;
+      clickedMarkers.push(event.latLng);
+      alert("in find_closest_marker");
+      var lat = event.latLng.lat();
+      var lng = event.latLng.lng();
+      var R = 6371; // radius of earth in km
+      var distances = [];
+      var closestMarkers = []
+      var closest = -1;
+      for( i=0;i<map.markers.length; i++ ) {
+        var mlat = map.markers[i].getPosition().lat();
+        var mlng = map.markers[i].getPosition().lng();
+        var dLat  = rad(mlat - lat);
+        var dLong = rad(mlng - lng);
+        var episilon = 0.0000001;
+        var a = Math.sin(dLat/2) * Math.sin(dLat/2) +
+            Math.cos(rad(lat)) * Math.cos(rad(lat)) * Math.sin(dLong/2) * Math.sin(dLong/2);
+        var c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
+        var d = R * c;
+        distances[i] = d;
+        if ( closest == -1 || d < distances[closest] && Math.abs(dLat) > episilon && Math.abs(dLong) > episilon) {
+            closest = i;
+        }
+      }
+      map.markers[closest].setIcon('https://www.google.com/mapfiles/marker_green.png');
+      overlayMarkers.push(map.markers[closest]);
+      alert("clickedCount = " + clickedCount);
+      
+    }
 
  
 
