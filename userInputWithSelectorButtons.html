@@ -21,8 +21,13 @@
     <script src="https://maps.googleapis.com/maps/api/js?v=3.exp"></script>
 
 <script>
-var clickedMarkers = [];
+var radius = 500;
 var clickedCount = 0;
+var map = null;
+var includeNotExistantSidewalks = 1;
+var clickedMarkers = [];
+var selectedMarkers = [];
+var polylinesList = [];
 
   function initialize() {
     var filePath = "http://www.prism.gatech.edu/~sravi40/SidewalksOnGoogleMaps/MidtownMapWithAttributes.csv";
@@ -39,7 +44,7 @@ var clickedCount = 0;
       mapTypeId: google.maps.MapTypeId.TERRAIN
     };
 
-    var map = new google.maps.Map(document.getElementById('map-canvas'),mapOptions);
+    map = new google.maps.Map(document.getElementById('map-canvas'),mapOptions);
     map.markers = [];
     for(var j = 0; j < fileArray.length; j = j+6){
 
@@ -68,7 +73,7 @@ var clickedCount = 0;
       var flightPath = new google.maps.Polyline({
         path: flightPlanCoordinates,
         geodesic: true,
-        strokeColor: '#FF0000',
+        strokeColor: 'blue',
         strokeOpacity: 1.0,
         strokeWeight: 2
       });
@@ -78,11 +83,11 @@ var clickedCount = 0;
       
 
       if(flightPath.isSidewalk == 1 && flightPath.isEdgePresent == 0){
-          flightPath.setOptions({strokeColor: 'black'});
+          flightPath.setOptions({strokeColor: 'red'});
       }
 
       if(flightPath.isSidewalk == 0 && flightPath.isEdgePresent == 1){
-          flightPath.setOptions({strokeColor: 'green'});
+          flightPath.setOptions({strokeColor: 'black'});
       }
 
       flightPath.setMap(map);
@@ -90,6 +95,7 @@ var clickedCount = 0;
       marker2.setMap(map);
       map.markers.push(marker1);
       map.markers.push(marker2);
+      polylinesList.push(flightPath);
 
       google.maps.event.addListener(flightPath, 'click', function() {
         alert(this.getPath().getArray().toString());
@@ -97,15 +103,22 @@ var clickedCount = 0;
       });
 
       google.maps.event.addListener(marker1, 'click', function(event){
+        selectedMarkers.push(marker1);
         find_closest_marker(event);
-        //closest = findClosestN(event.latLng,10);
-        findAllPointsWithinRadius(event.latLng,100);
+        if(includeNotExistantSidewalks == 1)
+          findAllPointsWithinRadius(event.latLng,radius);
+        else
+          findAllPointsWithinRadiusExistingSidewalks(event.latLng,radius);
       });
     
       google.maps.event.addListener(marker2, 'click', function(event){
+        selectedMarkers.push(marker2);
         find_closest_marker(event);
-        //closest = findClosestN(event.latLng,10);
-        findAllPointsWithinRadius(event.latLng,100);
+        if(includeNotExistantSidewalks == 1){
+          findAllPointsWithinRadius(event.latLng,radius);
+        }else{
+          findAllPointsWithinRadiusExistingSidewalks(event.latLng,radius);
+        }
       });
 
     }
@@ -115,18 +128,18 @@ var clickedCount = 0;
                            
     // Create an input field
     var controlInput = document.createElement('INPUT');
-    controlInput.id = "isSidewalk";
-    controlInput.name = "isSidewalk";
-    controlInput.value = "0 or 1";
+    controlInput.id = "radius";
+    controlInput.name = "radius";
+    controlInput.value = "enter a whole number";
 
     // Create a label
     var controlLabel = document.createElement('label');
-    controlLabel.innerHTML = 'Some information';
+    controlLabel.innerHTML = 'Enter the radius in metres';
     controlLabel.setAttribute("for","some-information");
    
     // Create a button to send the information
     var controlButton = document.createElement('a');
-    controlButton.innerHTML = 'Send it!';
+    controlButton.innerHTML = 'Submit';
 
     // Append everything to the wrapper div
     controlDiv.appendChild(controlLabel);
@@ -134,13 +147,78 @@ var clickedCount = 0;
     controlDiv.appendChild(controlButton);
     
     var onClick = function() {
-        var inputvalue = $("#some-information").val();
-        alert("You entered: '" + inputvalue + "', map center is at " + map.getCenter());
+        radius = $("#radius").val();
+        alert("You entered: '" + radius + "', map center is at " + map.getCenter());
     };
     
     google.maps.event.addDomListener(controlButton, 'click', onClick);
-    map.controls[google.maps.ControlPosition.TOP_RIGHT].push(controlDiv);
+    map.controls[google.maps.ControlPosition.BOTTOM_RIGHT].push(controlDiv);
    
+
+    
+
+    // user input 
+  controlDiv.style.padding = '5px';
+
+  // Set CSS for the control border
+  var nonExistingSidewalkUI = document.createElement('div');
+  nonExistingSidewalkUI.style.backgroundColor = 'white';
+  nonExistingSidewalkUI.style.borderStyle = 'solid';
+  nonExistingSidewalkUI.style.borderWidth = '2px';
+  nonExistingSidewalkUI.style.cursor = 'pointer';
+  nonExistingSidewalkUI.style.textAlign = 'center';
+  nonExistingSidewalkUI.title = 'Click to set the map to Home';
+  controlDiv.appendChild(nonExistingSidewalkUI);
+
+  // Set CSS for the control interior
+  var nonExistingSidewalkText = document.createElement('div');
+  nonExistingSidewalkText.style.fontFamily = 'Arial,sans-serif';
+  nonExistingSidewalkText.style.fontSize = '12px';
+  nonExistingSidewalkText.style.paddingLeft = '4px';
+  nonExistingSidewalkText.style.paddingRight = '4px';
+  nonExistingSidewalkText.innerHTML = '<b>Do not include non-existant sidewalks</b>';
+  nonExistingSidewalkUI.appendChild(nonExistingSidewalkText);
+
+  // Set CSS for the setHome control border
+  var clearMapUI = document.createElement('div');
+  clearMapUI.style.backgroundColor = 'white';
+  clearMapUI.style.borderStyle = 'solid';
+  clearMapUI.style.borderWidth = '2px';
+  clearMapUI.style.cursor = 'pointer';
+  clearMapUI.style.textAlign = 'center';
+  clearMapUI.title = 'Click to set Home to the current center';
+  controlDiv.appendChild(clearMapUI);
+
+  // Set CSS for the control interior
+  var clearMapText = document.createElement('div');
+  clearMapText.style.fontFamily = 'Arial,sans-serif';
+  clearMapText.style.fontSize = '12px';
+  clearMapText.style.paddingLeft = '4px';
+  clearMapText.style.paddingRight = '4px';
+  clearMapText.innerHTML = '<b>Clear Map</b>';
+  clearMapUI.appendChild(clearMapText);
+
+  google.maps.event.addDomListener(nonExistingSidewalkUI, 'click', function() {
+    alert("clicked nonExistingSidewalkUI");
+    if(includeNotExistantSidewalks == 1)
+      includeNotExistantSidewalks = 0;
+    else
+      includeNotExistantSidewalks = 1;
+  });
+
+  // Setup the click event listener for Set Home:
+  // Set the control's home to the current Map center.
+  google.maps.event.addDomListener(clearMapUI, 'click', function() {
+    clearMarkers();
+  });
+
+  var homeControlDiv = document.createElement('div');
+  homeControlDiv.index = 1;
+  map.controls[google.maps.ControlPosition.TOP_RIGHT].push(homeControlDiv);
+
+  }
+
+    google.maps.event.addDomListener(window, 'load', initialize);
 
     function rad(x) {
       return x*Math.PI/180;
@@ -172,9 +250,9 @@ var clickedCount = 0;
         }
       }
       map.markers[closest].setIcon('https://www.google.com/mapfiles/marker_green.png');
-
+      selectedMarkers.push(map.markers[closest]);
       alert("clickedCount = " + clickedCount);
-      if(clickedCount >= 2){
+      if(clickedCount >= 2 && includeNotExistantSidewalks == 1){
         getDirections(clickedMarkers[0],clickedMarkers[clickedCount-1]);
       }
     }
@@ -222,6 +300,7 @@ var clickedCount = 0;
       alert(pointsWithinRadius.length);
       for(var j = 0; j < pointsWithinRadius.length; j++){
         pointsWithinRadius[j].setIcon('https://www.google.com/mapfiles/marker_green.png');
+        selectedMarkers.push(pointsWithinRadius[j]);
       }
 
     }
@@ -249,21 +328,34 @@ var clickedCount = 0;
         }
       });
     }
+  
+    function findAllPointsWithinRadiusExistingSidewalks(point,radius){
 
+
+
+
+
+    }
+  // Removes the markers from the map, but keeps them in the array.
+  function clearMarkers() {
+    for (var i = 0; i < selectedMarkers.length; i++) {
+        selectedMarkers[i].setMap(null);
+      }
   }
+
 
     function getCircle() {
       return {
         path: google.maps.SymbolPath.CIRCLE,
-        fillColor: 'blue',
+        fillColor: 'black',
         fillOpacity: 1,
-        strokeColor: 'blue',
+        strokeColor: 'black',
         strokeWeight: .5
       };
     }
 
 
-    google.maps.event.addDomListener(window, 'load', initialize);
+    
   </script>
 
 </head>

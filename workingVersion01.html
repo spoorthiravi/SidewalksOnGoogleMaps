@@ -1,0 +1,694 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <meta name="viewport" content="initial-scale=1.0, user-scalable=no">
+    <meta charset="utf-8">
+    <title>Simple Polylines</title>
+    <style>
+      html, body, #map-canvas {
+        height: 100%;
+        margin: 0px;
+        padding: 0px
+      }
+      #controls {
+        margin-top:2px;
+        background-color:white;
+        padding:5px;
+    }
+    #formA {
+        margin-top:2px;
+        background-color:white;
+        padding:5px;
+    }
+    #N {
+        margin-top:2px;
+        background-color:white;
+        padding:5px;
+    }
+    </style>
+    <script src="jquery-2.1.1.js"></script>
+    <script src="jquery.csv.js"></script>
+    <script src="https://maps.googleapis.com/maps/api/js?v=3.exp"></script>
+
+<script>
+  var radius = 500;
+  var clickedCount = 0;
+  var clickedPolylineCount = 0;
+  var map = null;
+  var includeNotExistantSidewalks = 1;
+  var clickedPolylinePoints = [];
+  var clickedMarkers = [];
+  var selectedMarkers = [];
+  var polylinesList = [];
+  var roads = {};
+
+  function initialize(){
+    alert("entered initialize");
+    var filePath = "http://www.prism.gatech.edu/~sravi40/SidewalksOnGoogleMaps/MidtownMapWithAttributes.csv";
+    xmlhttp = new XMLHttpRequest();
+    xmlhttp.open("GET",filePath,false);
+    xmlhttp.send(null);
+    var fileContent = xmlhttp.responseText;
+    var fileArray = fileContent.split(',')
+    var mapOptions = {
+      zoom: 25,
+      //center: new google.maps.LatLng(33.7550,-84.3900),
+      center: new google.maps.LatLng(33.778231336603724,-84.38113508226229),
+      mapTypeId: google.maps.MapTypeId.TERRAIN
+    };
+
+    map = new google.maps.Map(document.getElementById('map-canvas'),mapOptions);
+    map.markers = [];
+    var markerTitle = 0;
+    for(var j = 0; j < fileArray.length; j = j+6){
+      var marker1;
+      var marker2;
+      var tempMarker1 = -1;
+      var tempMarker2 = -1;
+      var latlng1 = new google.maps.LatLng(fileArray[j],fileArray[j+1]);
+      var latlng2 = new google.maps.LatLng(fileArray[j+2],fileArray[j+3]);
+
+      if(map.markers.length != 0){
+        tempMarker1 = markersListContains(map.markers,latlng1);
+        if(tempMarker1 != -1){
+          marker1 = map.markers[tempMarker1];
+        }else{
+          marker1 = new google.maps.Marker({
+            position: latlng1,
+            map: map,
+            title: markerTitle.toString(),
+            icon: getCircle()
+          });
+          map.markers.push(marker1);
+        marker1.setMap(map);
+        }
+      }else{
+        marker1 = new google.maps.Marker({
+            position: latlng1,
+            map: map,
+            title: markerTitle.toString(),
+            icon: getCircle()
+          });
+        map.markers.push(marker1);
+        marker1.setMap(map);
+
+      }
+
+      if(map.markers.length != 0){
+        tempMarker2 = markersListContains(map.markers,latlng2);
+        if(tempMarker2 != -1){
+          marker2 = map.markers[tempMarker2];
+        }else{
+          marker2 = new google.maps.Marker({
+            position: latlng2,
+            map: map,
+            title: (markerTitle+1).toString(),
+            icon: getCircle()
+          });
+          map.markers.push(marker2);
+          marker2.setMap(map);
+        }
+      }else{
+        marker2 = new google.maps.Marker({
+            position: latlng2,
+            map: map,
+            title: (markerTitle+1).toString(),
+            icon: getCircle()
+          });
+        map.markers.push(marker2);
+        marker2.setMap(map);
+      }
+
+      markerTitle == markerTitle + 1;
+      var flightPlanCoordinates = [
+        new google.maps.LatLng(fileArray[j],fileArray[j+1]),
+        new google.maps.LatLng(fileArray[j+2],fileArray[j+3])
+      ];
+
+      var flightPath = new google.maps.Polyline({
+        path: flightPlanCoordinates,
+        geodesic: true,
+        strokeColor: 'blue',
+        strokeOpacity: 1.0,
+        strokeWeight: 2
+      });
+
+      flightPath.isEdgePresent = fileArray[j+4];
+      flightPath.isSidewalk = fileArray[j+5];
+      flightPath.startCoordinates = flightPlanCoordinates[0];
+      flightPath.endCoordinates = flightPlanCoordinates[1];
+      
+
+      if(flightPath.isSidewalk == 1 && flightPath.isEdgePresent == 0){
+          flightPath.setOptions({strokeColor: 'red'});
+      }
+
+      if(flightPath.isSidewalk == 0 && flightPath.isEdgePresent == 1){
+          flightPath.setOptions({strokeColor: 'black'});
+          makeRoad(flightPath.startCoordinates,flightPath.endCoordinates,
+            getLength(flightPath.startCoordinates,flightPath.endCoordinates));
+      }
+
+      if(flightPath.isSidewalk == 1 && flightPath.isEdgePresent == 1){
+        makeRoad(flightPath.startCoordinates,flightPath.endCoordinates,
+            getLength(flightPath.startCoordinates,flightPath.endCoordinates));
+      }
+
+      flightPath.setMap(map);
+      polylinesList.push(flightPath);
+
+      google.maps.event.addListener(flightPath, 'click', function() {
+        alert(this.getPath().getArray().toString());
+        callDijkstra(this.startCoordinates,this.endCoordinates);
+        this.setOptions({strokeColor:'blue'});
+      });
+
+      google.maps.event.addListener(marker1, 'click', function(event){
+        selectedMarkers.push(marker1);
+      });
+    
+      google.maps.event.addListener(marker2, 'click', function(event){
+        selectedMarkers.push(marker2);
+      });
+
+    } // end of for 
+
+
+
+    var size = 0;
+    var elements = [];
+    for(var i in roads){
+      size++;
+      elements.push(i);
+    }
+    alert("size = " + size);
+   
+    var controlDiv = document.createElement('DIV');
+    controlDiv.id = "controls";
+                           
+    // Create an input field
+    var controlInput = document.createElement('INPUT');
+    controlInput.id = "radius";
+    controlInput.name = "radius";
+    controlInput.value = "";
+
+    // Create a label
+    var controlLabel = document.createElement('label');
+    controlLabel.innerHTML = 'Enter the radius in metres';
+    controlLabel.setAttribute("for","some-information");
+   
+    // Create a button to send the information
+    var controlButton = document.createElement('a');
+    controlButton.innerHTML = 'Submit';
+
+    // Append everything to the wrapper div
+    controlDiv.appendChild(controlLabel);
+    controlDiv.appendChild(controlInput);
+    controlDiv.appendChild(controlButton);
+    
+    var onClick = function() {
+        radius = $("#radius").val();
+        alert("You entered: '" + radius + "', map center is at " + map.getCenter());
+    };
+
+    google.maps.event.addDomListener(controlButton, 'click', onClick);
+    map.controls[google.maps.ControlPosition.BOTTOM_RIGHT].push(controlDiv);
+
+
+    controlDiv.style.padding = '5px';
+
+    var controlNDiv = document.createElement('DIV');
+    controlNDiv.id = "N";
+                           
+    // Create an input field
+    var controlInput = document.createElement('INPUT');
+    controlInput.id = "neighbors";
+    controlInput.name = "N";
+    controlInput.value = "";
+
+    // Create a label
+    var controlLabel = document.createElement('label');
+    controlLabel.innerHTML = 'Enter the number of neighbors';
+    controlLabel.setAttribute("for","some-information");
+   
+    // Create a button to send the information
+    var controlButton = document.createElement('a');
+    controlButton.innerHTML = 'Submit';
+
+    // Append everything to the wrapper div
+    controlNDiv.appendChild(controlLabel);
+    controlNDiv.appendChild(controlInput);
+    controlNDiv.appendChild(controlButton);
+    controlDiv.appendChild(controlNDiv);
+    
+    var onClickN = function() {
+        number = $("#N").val();
+        alert("You entered: '" + number + "', map center is at " + map.getCenter());
+    };
+
+    google.maps.event.addDomListener(controlButton, 'click', onClickN);
+    //map.controls[google.maps.ControlPosition.BOTTOM_RIGHT].push(controlDiv);
+
+
+/***********************************************************/
+
+    var controlForm = document.createElement('FORM');
+    controlForm.id = "formA";
+    controlForm.name = "formA";
+
+                           
+    // Create an input field
+    var controlFormInput = document.createElement('INPUT');
+    controlFormInput.type="radio";
+    controlFormInput.id = "connectivity";
+    controlFormInput.name = "radioButton";
+    controlFormInput.value = "1";
+    controlFormInput.text = "connectivity";
+
+    var controlLabel = document.createElement('label');
+    controlLabel.innerHTML = 'Select For Calculating Connectivity';
+    
+
+    // Append everything to the wrapper div
+    
+    controlForm.appendChild(controlFormInput);
+    controlForm.appendChild(controlLabel);
+
+
+    map.controls[google.maps.ControlPosition.TOP_RIGHT].push(controlForm);
+
+    /*var controlFormInput = document.createElement('INPUT');
+    controlFormInput.type="radio";
+    controlFormInput.id = "route";
+    controlFormInput.name = "radioButton";
+    controlFormInput.value = "1";
+    controlFormInput.text = "route";
+    
+    var controlLabel = document.createElement('label');
+    controlLabel.innerHTML = 'Select For Calculating Route';
+    
+    
+    controlForm.appendChild(controlFormInput);
+    controlForm.appendChild(controlLabel);
+
+
+    var controlFormInput = document.createElement('INPUT');
+    controlFormInput.type="radio";
+    controlFormInput.id = "nClosest";
+    controlFormInput.name = "radioButton";
+    controlFormInput.value = "1";
+    controlFormInput.text = "nClosest";
+    
+    var controlLabel = document.createElement('label');
+    controlLabel.innerHTML = 'Find N closes Neighbours';
+    
+    
+    controlForm.appendChild(controlFormInput);
+    controlForm.appendChild(controlLabel);
+
+
+    var radios = document.forms["formA"].elements["radioButton"];
+    for(var i = 0; i < radios.length; i++) {
+      radios[i].onclick = function() {
+        alert(this.value);
+      }
+    }
+
+    $("#nClosest").click(function(){
+            alert(this.value);
+    });
+      
+
+
+
+     $(document).ready(function(){
+        $('#formA input[type=radio]').click(function(){
+            alert(this.value);
+        });
+    });*/
+  
+ /* $(document).ready(function(){
+    $('input[type=radio]').click(function(){
+        if (this.id == "connectivity")
+            alert(this.value);
+    });
+});*/
+
+  var mailcopy = $("#connectivity").val();
+
+alert(mailcopy);
+
+
+
+    // user input 
+    controlDiv.style.padding = '5px';
+
+    // Set CSS for the control border
+    var nonExistingSidewalkUI = document.createElement('div');
+    nonExistingSidewalkUI.style.backgroundColor = 'white';
+    nonExistingSidewalkUI.style.borderStyle = 'solid';
+    nonExistingSidewalkUI.style.borderWidth = '2px';
+    nonExistingSidewalkUI.style.cursor = 'pointer';
+    nonExistingSidewalkUI.style.textAlign = 'center';
+    nonExistingSidewalkUI.title = 'Click to set the map to Home';
+    controlDiv.appendChild(nonExistingSidewalkUI);
+
+    // Set CSS for the control interior
+    var nonExistingSidewalkText = document.createElement('div');
+    nonExistingSidewalkText.style.fontFamily = 'Arial,sans-serif';
+    nonExistingSidewalkText.style.fontSize = '12px';
+    nonExistingSidewalkText.style.paddingLeft = '4px';
+    nonExistingSidewalkText.style.paddingRight = '4px';
+    nonExistingSidewalkText.innerHTML = '<b>Do not include non-existant sidewalks</b>';
+    nonExistingSidewalkUI.appendChild(nonExistingSidewalkText);
+
+    // Set CSS for the setHome control border
+    var clearMapUI = document.createElement('div');
+    clearMapUI.style.backgroundColor = 'white';
+    clearMapUI.style.borderStyle = 'solid';
+    clearMapUI.style.borderWidth = '2px';
+    clearMapUI.style.cursor = 'pointer';
+    clearMapUI.style.textAlign = 'center';
+    clearMapUI.title = 'Click to set Home to the current center';
+    controlDiv.appendChild(clearMapUI);
+
+    // Set CSS for the control interior
+    var clearMapText = document.createElement('div');
+    clearMapText.style.fontFamily = 'Arial,sans-serif';
+    clearMapText.style.fontSize = '12px';
+    clearMapText.style.paddingLeft = '4px';
+    clearMapText.style.paddingRight = '4px';
+    clearMapText.innerHTML = '<b>Clear Map</b>';
+    clearMapUI.appendChild(clearMapText);
+
+    google.maps.event.addDomListener(nonExistingSidewalkUI, 'click', function() {
+    alert("clicked nonExistingSidewalkUI");
+    if(includeNotExistantSidewalks == 1)
+      includeNotExistantSidewalks = 0;
+    else
+      includeNotExistantSidewalks = 1;
+    });
+
+    // Setup the click event listener for Set Home:
+    // Set the control's home to the current Map center.
+    google.maps.event.addDomListener(clearMapUI, 'click', function() {
+    clearMarkers();
+    });
+
+    var homeControlDiv = document.createElement('div');
+    homeControlDiv.index = 1;
+    map.controls[google.maps.ControlPosition.BOTTOM_RIGHT].push(homeControlDiv);
+
+    /*$(document).ready(function(){ 
+       getInput
+
+             });*/
+
+
+
+    /*var nClosest = 0;
+    var route = 0;
+    var connectivity = 0;
+
+    if ($("#route").checked){
+      route = $("#route").val();
+    }
+
+    if ($("#connectivity").checked){
+      route = $("#connectivity").val();
+    }
+
+    if ($("#nClosest").checked){
+      route = $("#nClosest").val();
+    }
+
+    if(route == 1 && !document.getElementById(connectivity).checked && !document.getElementById(nClosest).checked){
+      alert('click any two points');
+    }
+
+    else if(connectivity == 1 && !document.getElementById(route).checked && !document.getElementById(nClosest).checked){
+      alert('enter radius');
+    }
+
+    else if(nClosest == 1 && !document.getElementById(route).checked && !document.getElementById(connectivity).checked){
+      alert('enter number of neighbors to find');
+    }
+
+    else{
+      alert("select one of the options");
+    }*/
+
+  }
+
+
+function markersListContains(markers,latlng){
+  for(var i=0; i<markers.length; i++) {
+        if (markers[i].getPosition().lat() == latlng.lat() && markers[i].getPosition().lng() == latlng.lng()){
+          return i;
+        } 
+    }
+    return -1;
+}
+
+function rad(x) {
+      return x*Math.PI/180;
+    }
+
+
+function callDijkstra(startCoordinates,endCoordinates){
+  clickedPolylineCount++;
+  alert("clickedPolylineCount = " + clickedPolylineCount);
+  addIcon(startCoordinates);
+  clickedPolylinePoints.push(startCoordinates);
+  if(clickedPolylineCount >= 2){
+    alert(clickedPolylinePoints[0]);
+    alert(clickedPolylinePoints[clickedPolylineCount-1]);
+    Dijkstra(roads,clickedPolylinePoints[0],clickedPolylinePoints[clickedPolylineCount-1]);
+  }
+  return;
+}
+
+function addIcon(startCoordinates){
+  alert("in addIcon");
+  var index = markersListContains(map.markers,startCoordinates);
+  if(index != -1){
+    map.markers[index].setIcon('https://www.google.com/mapfiles/marker_green.png');
+  }else{
+      alert("-1");
+  }
+}
+
+function getLength(startCoordinates,endCoordinates){
+  //polylineLengthInMeters = google.maps.geometry.spherical.computeLength(polyline.getPath().getArray());
+  //return polylineLengthInMeters;
+  var R = 6371; // radius of earth in km
+  var lat = startCoordinates.lat();
+  var lng = startCoordinates.lng();
+  var mlat = endCoordinates.lat();
+  var mlng = endCoordinates.lng();
+  var dLat  = rad(mlat - lat);
+  var dLong = rad(mlng - lng);
+  var episilon = 0.0000001;
+  var a = Math.sin(dLat/2) * Math.sin(dLat/2) + Math.cos(rad(lat)) * Math.cos(rad(lat)) * Math.sin(dLong/2) * Math.sin(dLong/2);
+  var c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
+  var d = R * c;
+  return d;
+}
+
+
+function makeRoad(from, to, length){
+  addRoad(from, to, length);
+  addRoad(to, from, length);
+}
+
+function addRoad(from, to, length) {
+    if (!(from in roads)) {
+      roads[from] = {};
+    }
+    roads[from][to] = length;
+  }
+
+function roadsFrom(place) {
+  var found = roads[place];
+  if (found === undefined) {
+    print("No place named '" + place + "' found.");
+  } else {
+    //alert("reaches a found road");
+    return found;
+    
+  }
+}
+
+function getCircle() {
+      return {
+        path: google.maps.SymbolPath.CIRCLE,
+        fillColor: 'black',
+        fillOpacity: 1,
+        strokeColor: 'black',
+        strokeWeight: .5
+      };
+    }
+
+function Dijkstra(roads, source, dest) {
+  alert("in Dijkstra");
+  var inf = Number.POSITIVE_INFINITY;
+  var distance = {};
+  var done = {};
+  var pred = {};
+  for (var i in roads) {
+    // Unknown distance function from source to i.
+    distance[i] = inf;
+    pred[i] = 0;
+    done[i] = false;
+  }
+  
+  // Distance from source to source = 0
+  distance[source] = 0;
+     
+  for (i in roads) {
+    var minDist = inf, closest;
+    for (var j in roads) {
+      if (!done[j]) {
+        if (distance[j] <= minDist) {
+          minDist = distance[j];
+          closest = j;
+        }
+      }
+    }
+    done[closest] = true;
+    if (closest === dest) {
+      break;
+    }
+       
+    var neighbors = roadsFrom(closest);
+    for (var nb in neighbors) {
+      var w = neighbors[nb];
+      if (!done[nb]) { 
+        if (distance[closest] + w < distance[nb]) {
+          distance[nb] = distance[closest] + w;
+          pred[nb] = closest;
+        }
+      }
+    } 
+  }
+   
+  // Done, now print.
+  i = dest;
+  alert("destination = " + i);
+  if (distance[i] < inf) {
+    var thePath = i;
+    var place = i;
+    while (place != source) {
+      alert("in while loop");
+      place = pred[place];
+      if (place != source) {
+        thePath = place + '->' + thePath;
+      }
+    }
+    alert("outside while loop");
+    thePath = place + '->' + thePath;
+    alert("Distance from " + source + "-->" + dest + " : " +
+            distance[i] + ' (' + thePath + ')');
+    var res = thePath.split("->");
+    var resLength = res.length;
+    for(var k = 0; k < res.length-1; k++){
+      for (var j = 0; j < polylinesList.length; j++){
+        if(res[k] == polylinesList[j].startCoordinates && res[k+1] == polylinesList[j].endCoordinates ||
+          res[k] == polylinesList[j].endCoordinates && res[k+1] == polylinesList[j].startCoordinates ){
+          alert("drawing route");
+          polylinesList[j].setOptions({strokeColor:'black'});
+          break;
+        }
+      }
+    }
+
+  } else {
+    alert("no path");
+  }
+}
+
+function findClosestN(pt,numberOfResults) {
+      alert("in closest");
+      var closest = [];
+      for (var i=0; i<map.markers.length;i++) {
+          map.markers[i].distance = google.maps.geometry.spherical.computeDistanceBetween(pt,map.markers[i].getPosition());
+          map.markers[i].setMap(null);
+          closest.push(map.markers[i]);
+      }
+      closest.sort(sortByDist);
+      alert("got n point success");
+      var nClosestPoints = closest.splice(0,numberOfResults);
+      for (var i = 0; i < nClosestPoints.length; i++) {
+        nClosestPoints[i].setIcon('https://www.google.com/mapfiles/marker_green.png');
+      }
+      return closest;
+    }
+
+    function sortByDist(a,b) {
+      return (a.distance - b.distance);
+    }
+
+
+    function findAllPointsWithinRadius(point,radius){
+      alert("in findAllPointsWithinRadius");
+      var pointsWithinRadius = [];
+      var pointDistances = [];
+      for (var i=0; i<map.markers.length;i++) {
+          map.markers[i].distance = google.maps.geometry.spherical.computeDistanceBetween(point,map.markers[i].getPosition());
+          //map.markers[i].setMap(null);
+          pointDistances.push(map.markers[i]);
+      }
+      pointDistances.sort(sortByDist);
+      for (var i = 0; i < pointDistances.length; i++) {
+        if(pointDistances[i].distance < radius){
+          pointsWithinRadius.push(pointDistances[i]);
+        }
+        
+      }
+      alert(pointsWithinRadius.length);
+      for(var j = 0; j < pointsWithinRadius.length; j++){
+        pointsWithinRadius[j].setIcon('https://www.google.com/mapfiles/marker_green.png');
+        selectedMarkers.push(pointsWithinRadius[j]);
+      }
+
+    }
+
+    function getDirections(origin, destination) {
+      var directionsDisplay = new google.maps.DirectionsRenderer();
+      var directionsService = new google.maps.DirectionsService();
+      alert("In getDirections");
+      var distanceInput = document.getElementById("distance");
+      var time = document.getElementById("time");
+      var request = {
+        origin:origin,
+        destination:destination,
+        waypoints: 
+          [{
+              location:origin,
+              stopover:false
+            }],
+        travelMode: google.maps.DirectionsTravelMode.WALKING
+      };
+      directionsService.route(request, function(response, status) {
+        if (status == google.maps.DirectionsStatus.OK) {
+          directionsDisplay.setMap(map);
+          directionsDisplay.setDirections(response);
+        }
+      });
+    }
+
+    // Removes the markers from the map, but keeps them in the array.
+  function clearMarkers() {
+    for (var i = 0; i < selectedMarkers.length; i++) {
+        selectedMarkers[i].setMap(null);
+      }
+  }
+
+ google.maps.event.addDomListener(window, 'load', initialize);
+</script>
+
+</head>
+<body>
+  <div id="map-canvas"></div>
+</body>
+</html>
