@@ -36,7 +36,7 @@
   var clickedCount = 0;
   var clickedPolylineCount = 0;
   var map = null;
-  var includeNotExistantSidewalks = 1;
+  var excludeNonExistantSidewalks = 0;
   var clickedPolylinePoints = [];
   var clickedMarkers = [];
   var selectedMarkers = [];
@@ -45,7 +45,7 @@
   var overlayMarkers = [];
 
   function initialize(){
-    alert("entered initialize");
+    //alert("entered initialize");
     var filePath = "http://www.prism.gatech.edu/~sravi40/SidewalksOnGoogleMaps/MidtownMapWithAttributes.csv";
     xmlhttp = new XMLHttpRequest();
     xmlhttp.open("GET",filePath,false);
@@ -238,7 +238,7 @@
     controlDiv.appendChild(controlNDiv);
     
     var onClickN = function() {
-        numOfNeighbors = $("#neighbors").val();
+        numOfNeighbors = $("#neighbors").val() * 4;
         alert("You entered: '" + numOfNeighbors + "', map center is at " + map.getCenter());
     };
 
@@ -269,7 +269,7 @@
     nonExistingSidewalkText.style.fontSize = '12px';
     nonExistingSidewalkText.style.paddingLeft = '4px';
     nonExistingSidewalkText.style.paddingRight = '4px';
-    nonExistingSidewalkText.innerHTML = '<b>Do not include non-existant sidewalks</b>';
+    nonExistingSidewalkText.innerHTML = '<b>Exclude non-existant sidewalks</b>';
     nonExistingSidewalkUI.appendChild(nonExistingSidewalkText);
 
     // Set CSS for the setHome control border
@@ -347,10 +347,20 @@
     nClosestButton.appendChild(nClosestText);
 
     google.maps.event.addDomListener(routeButton, 'click', function() {
-      if(clickedCount >= 2){
+      if(clickedCount >= 2 && excludeNonExistantSidewalks == 0){
         getDirections(clickedMarkers[0],clickedMarkers[clickedCount-1]);
-      }else{
+      }
+      else if(clickedPolylineCount >= 2 && excludeNonExistantSidewalks == 1){
+        alert(clickedPolylinePoints[0]);
+        alert(clickedPolylinePoints[clickedPolylineCount-1]);
+        Dijkstra(roads,clickedPolylinePoints[0],clickedPolylinePoints[clickedPolylineCount-1]);
+      }
+      else if(clickedCount < 2 && excludeNonExistantSidewalks == 0){
         alert("first select two or more points");
+      }else if(clickedPolylineCount < 2 && excludeNonExistantSidewalks == 1){
+        alert("click any two polylines");
+      }else{
+        alert("dont know what to do");
       }
     });
 
@@ -369,11 +379,14 @@
     });
 
     google.maps.event.addDomListener(nonExistingSidewalkUI, 'click', function() {
-    alert("clicked nonExistingSidewalkUI");
-    if(includeNotExistantSidewalks == 1)
-      includeNotExistantSidewalks = 0;
-    else
-      includeNotExistantSidewalks = 1;
+      alert("excludeNonExistantSidewalks = " + excludeNonExistantSidewalks);
+      if(excludeNonExistantSidewalks == "1"){
+        excludeNonExistantSidewalks = "0";
+        alert("excludeNonExistantSidewalks = " + excludeNonExistantSidewalks);
+      }else{
+        excludeNonExistantSidewalks = "1";
+        alert("excludeNonExistantSidewalks = " + excludeNonExistantSidewalks);
+      }
     });
 
     // Setup the click event listener for Set Home:
@@ -410,11 +423,6 @@ function callDijkstra(startCoordinates,endCoordinates){
   alert("clickedPolylineCount = " + clickedPolylineCount);
   addIcon(startCoordinates);
   clickedPolylinePoints.push(startCoordinates);
-  if(clickedPolylineCount >= 2){
-    alert(clickedPolylinePoints[0]);
-    alert(clickedPolylinePoints[clickedPolylineCount-1]);
-    Dijkstra(roads,clickedPolylinePoints[0],clickedPolylinePoints[clickedPolylineCount-1]);
-  }
   return;
 }
 
