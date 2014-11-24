@@ -45,6 +45,8 @@
   var overlayMarkers = [];
   //var allStartCoordinates = [];
 
+  
+
   function initialize(){
     var filePath = "http://www.prism.gatech.edu/~sravi40/SidewalksOnGoogleMaps/MidtownMapWithAttributes.csv";
     xmlhttp = new XMLHttpRequest();
@@ -114,12 +116,12 @@
       if(flightPath.isSidewalk == 0 && flightPath.isEdgePresent == 1){
           flightPath.setOptions({strokeColor: 'black'});
           makeRoad(flightPath.startCoordinates,flightPath.endCoordinates,
-            getLength(flightPath.startCoordinates,flightPath.endCoordinates));
+            getLength(flightPath.startCoordinates,flightPath.endCoordinates,flightPath));
       }
 
       if(flightPath.isSidewalk == 1 && flightPath.isEdgePresent == 1){
         makeRoad(flightPath.startCoordinates,flightPath.endCoordinates,
-            getLength(flightPath.startCoordinates,flightPath.endCoordinates));
+            getLength(flightPath.startCoordinates,flightPath.endCoordinates,flightPath));
       }
 
       flightPath.setMap(map);
@@ -130,7 +132,7 @@
         callDijkstra(this.startCoordinates,this.endCoordinates);
         if(this.isSidewalk == 1 && this.isEdgePresent == 0){
           makeRoad(this.startCoordinates,this.endCoordinates,
-            getLength(this.startCoordinates,this.endCoordinates));
+            getLength(this.startCoordinates,this.endCoordinates,this));
           this.isEdgePresent = 1;
           this.setOptions({strokeColor:'green'});
         }else if(this.isSidewalk == 1 && this.isEdgePresent == 1 && this.strokeColor == 'green'){
@@ -425,7 +427,7 @@ function addIcon(startCoordinates){
   }
 }
 
-function getLength(startCoordinates,endCoordinates){
+function getLength(startCoordinates,endCoordinates,flightPath){
   //polylineLengthInMeters = google.maps.geometry.spherical.computeLength(polyline.getPath().getArray());
   //return polylineLengthInMeters;
   var R = 6371; // radius of earth in km
@@ -440,6 +442,21 @@ function getLength(startCoordinates,endCoordinates){
   var c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
   var d = R * c;
   return d;
+  /*
+  // Custom Distance
+  //weight for intersection edge is 3*length
+  if(flightPath.isSidewalk == 0){
+    return 3*d;
+  }
+  //weight for sidewalk edge that is doesn't exist is 2*length
+  else if (flightPath.isSidewalk == 1 && flightPath.isEdgePresent == 0){
+    return 2*d;
+  }
+  //weight for sidewalk edge that exists is 1*length
+  else if (flightPath.isSidewalk == 1 && flightPath.isEdgePresent == 1){
+    return d;
+  }
+  */
 }
 
 function removeRoad(from,to){

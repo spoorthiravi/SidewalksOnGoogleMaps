@@ -1,9 +1,23 @@
 <!DOCTYPE html>
 <html>
   <body>
-    <form action="http://www.prism.gatech.edu/~sravi40/SidewalksOnGoogleMaps/" method="post" enctype="multipart/form-data">
+    <!--<form action="sravi40@scp.prism.gatech.edu" method="post" enctype="multipart/form-data">
         <input type="file" name="filename" />
         <input type="submit" value="Upload" />
-    </form>
+    </form>-->
+    <form action="">
+	<select id="ddlViewBy">
+  		<option value="1">test1</option>
+  		<option value="2">test2</option>
+  		<option value="3">test3</option>
+	</select>
+	</form>
   </body>
+
+  <script type="text/javascript">
+  	var e = document.getElementById("ddlViewBy");
+	var strUser = e.options[e.selectedIndex].text;
+	alert(strUser);
+
+  </script>
 </html>
