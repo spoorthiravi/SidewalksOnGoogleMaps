@@ -594,6 +594,7 @@ function getCircle() {
     }
 
 function Dijkstra(roads, source, dest) {
+  alert("in dijkstra's");
   var inf = Number.POSITIVE_INFINITY;
   var distance = {};
   var done = {};
@@ -654,6 +655,7 @@ function Dijkstra(roads, source, dest) {
         if(res[k] == polylinesList[j].startCoordinates && res[k+1] == polylinesList[j].endCoordinates ||
           res[k] == polylinesList[j].endCoordinates && res[k+1] == polylinesList[j].startCoordinates ){
           polylinesList[j].setOptions({strokeColor:'green'});
+          //polylinesList[j].setMap(map);
           break;
         }
       }
@@ -761,6 +763,8 @@ function findClosestN(pt,numberOfResults) {
       for(var k = 0; k < polylinesList.length; k++){
         polylinesList[k].setOptions({strokeColor:polylinesList[k].originalStrokeColor});
       }
+
+      clickedPolylinePoints = [];
 
       alert(map.markers.length);
   }
