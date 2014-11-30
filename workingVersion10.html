@@ -220,7 +220,7 @@ var addRoadCount = 0;
         controlButtonRadius.style.backgroundColor = "white";
 
         radius = $("#radius").val();
-        alert("You entered: '" + radius);
+        alert("You entered: " + radius);
     };
 
     google.maps.event.addDomListener(controlButtonRadius, 'click', onClick);
@@ -747,6 +747,8 @@ function findClosestN(pt,numberOfResults) {
       for(var k = 0; k < polylinesList.length; k++){
         polylinesList[k].setOptions({strokeColor:polylinesList[k].originalStrokeColor});
       }
+
+      clickedPolylinePoints = [];
   }
 
 
