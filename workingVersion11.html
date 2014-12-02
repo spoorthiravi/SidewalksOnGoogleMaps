@@ -67,6 +67,8 @@ var addRoadCount = 0;
   var csvClickedCount = 0;
   var fileName = "MidtownMapWithAttributes.csv";
   var dijkstraPoints = [];
+  var buttonList = [];
+  var clickedButtonCount = 0;
 
   function initialize(){
     //if(csvClickedCount == 0){
@@ -159,6 +161,7 @@ var addRoadCount = 0;
       polylinesList.push(flightPath);
 
       google.maps.event.addListener(flightPath, 'click', function() {
+        if(clickedButtonCount > 0){
         if(this.isSidewalk == 1 && this.isEdgePresent == 0){
           makeRoad(this.startCoordinates,this.endCoordinates,
             getLength(this.startCoordinates,this.endCoordinates));
@@ -170,18 +173,22 @@ var addRoadCount = 0;
           this.setOptions({strokeColor:'red'});
         }  
         //this.setOptions({strokeColor:'blue'});
-        
+        }
       });
 
 
       google.maps.event.addListener(marker1, 'click', function(event){
-        selectedMarkers.push(marker1);
-        find_closest_marker(event);
+        if(clickedButtonCount > 0){
+          selectedMarkers.push(marker1);
+          find_closest_marker(event);
+        }
       });
     
       google.maps.event.addListener(marker2, 'click', function(event){
+        if(clickedButtonCount > 0){
         selectedMarkers.push(marker2);
         find_closest_marker(event);
+      }
       });
 
     } // end of for 
@@ -208,9 +215,10 @@ var addRoadCount = 0;
     }
     
 
-   
+   //if(clickedButtonCount > 0){
     google.maps.event.addListener(map, 'click', find_closest_marker);
    
+
     var controlDiv = document.createElement('DIV');
     controlDiv.id = "controls";
                            
@@ -222,6 +230,10 @@ var addRoadCount = 0;
 
     // Create a label
     var controlLabel = document.createElement('label');
+    controlLabel.style.fontFamily = 'Arial,sans-serif';
+    controlLabel.style.fontSize = '12px';
+    controlLabel.style.paddingLeft = '4px';
+    controlLabel.style.paddingRight = '4px';
     controlLabel.innerHTML = 'Enter the radius in metres';
     controlLabel.setAttribute("for","some-information");
    
@@ -263,6 +275,10 @@ var addRoadCount = 0;
 
     // Create a label
     var controlLabel = document.createElement('label');
+    controlLabel.style.fontFamily = 'Arial,sans-serif';
+    controlLabel.style.fontSize = '12px';
+    controlLabel.style.paddingLeft = '4px';
+    controlLabel.style.paddingRight = '4px';
     controlLabel.innerHTML = 'Enter the number of neighbors';
     controlLabel.setAttribute("for","some-information");
    
@@ -299,23 +315,28 @@ var addRoadCount = 0;
     controlDiv.style.padding = '5px';
 
     // Set CSS for the control border
-    var nonExistingSidewalkUI = document.createElement('div');
-    nonExistingSidewalkUI.style.backgroundColor = 'white';
-    nonExistingSidewalkUI.style.borderStyle = 'solid';
-    nonExistingSidewalkUI.style.borderWidth = '2px';
-    nonExistingSidewalkUI.style.cursor = 'pointer';
-    nonExistingSidewalkUI.style.textAlign = 'center';
-    nonExistingSidewalkUI.title = 'Click to set the map to Home';
-    controlDiv.appendChild(nonExistingSidewalkUI);
-
-    // Set CSS for the control interior
     var nonExistingSidewalkText = document.createElement('div');
     nonExistingSidewalkText.style.fontFamily = 'Arial,sans-serif';
     nonExistingSidewalkText.style.fontSize = '12px';
     nonExistingSidewalkText.style.paddingLeft = '4px';
     nonExistingSidewalkText.style.paddingRight = '4px';
     nonExistingSidewalkText.innerHTML = '<b>Exclude non-existant sidewalks</b>';
-    nonExistingSidewalkUI.appendChild(nonExistingSidewalkText);
+    controlDiv.appendChild(nonExistingSidewalkText);
+
+    var nonExistingSidewalkUI = document.createElement('input');
+    nonExistingSidewalkUI.id = "nonExistingSidewalk"
+    nonExistingSidewalkUI.setAttribute("type", "checkbox");
+    nonExistingSidewalkUI.style.backgroundColor = 'white';
+    nonExistingSidewalkUI.style.borderStyle = 'solid';
+    nonExistingSidewalkUI.style.borderWidth = '2px';
+    nonExistingSidewalkUI.style.cursor = 'pointer';
+    nonExistingSidewalkUI.style.textAlign = 'center';
+    nonExistingSidewalkUI.title = 'Click to set the map to Home';
+    
+
+    // Set CSS for the control interior
+  
+    nonExistingSidewalkText.appendChild(nonExistingSidewalkUI);
 
     // Set CSS for the setHome control border
     var clearMapUI = document.createElement('div');
@@ -395,6 +416,7 @@ var addRoadCount = 0;
         routeButton.style.backgroundColor = "#f47121";
       else 
         routeButton.style.backgroundColor = "white";
+      clickedButtonCount++;
 
       if(clickedCount >= 2 && excludeNonExistantSidewalks == 0){
         Dijkstra(graph,clickedPolylinePoints[0],clickedPolylinePoints[clickedPolylineCount-1]);
@@ -414,6 +436,7 @@ var addRoadCount = 0;
         nClosestButton.style.backgroundColor = "#f47121";
       else 
         nClosestButton.style.backgroundColor = "white";
+      clickedButtonCount++;
       if(numOfNeighbors != 0 && clickedCount >= 1 && excludeNonExistantSidewalks == 0){
         findClosestN(clickedMarkers[clickedCount-1],numOfNeighbors);
       }else if(numOfNeighbors != 0 && clickedCount < 1 && excludeNonExistantSidewalks == 0){
@@ -424,7 +447,7 @@ var addRoadCount = 0;
           alert("click a line");
       }
       else{
-        alert("Please select a point first and enter number of neighbors");
+        alert("Please select a point first and enter number of neighbors and Click Me!");
       }
     });
 
@@ -434,7 +457,7 @@ var addRoadCount = 0;
         connectivityButton.style.backgroundColor = "#f47121";
       else 
         connectivityButton.style.backgroundColor = "white";
-
+      clickedButtonCount++;
       if(radius == 0){
         alert("enter radius and press Submit");
       }else{
@@ -451,17 +474,19 @@ var addRoadCount = 0;
       
     });
 
-    google.maps.event.addDomListener(nonExistingSidewalkUI, 'click', function() {
-      if(nonExistingSidewalkUI.style.backgroundColor == "white")
-        nonExistingSidewalkUI.style.backgroundColor = "#f47121";
-      else 
-        nonExistingSidewalkUI.style.backgroundColor = "white";
 
-      if(excludeNonExistantSidewalks == "1"){
-        excludeNonExistantSidewalks = "0";
-      }else{
-        excludeNonExistantSidewalks = "1";
+  google.maps.event.addDomListener(nonExistingSidewalkUI, 'change', function() {
+    if(nonExistingSidewalkUI.checked)
+      {
+        excludeNonExistantSidewalks = 1;
+        alert(excludeNonExistantSidewalks);
       }
+      else
+      {
+        excludeNonExistantSidewalks = 0;
+        alert(excludeNonExistantSidewalks);
+      } 
+
     });
 
     // Setup the click event listener for Set Home:
@@ -474,6 +499,11 @@ var addRoadCount = 0;
 
       clearMarkers();
     });
+
+    buttonList.push(nClosestButton);
+    buttonList.push(connectivityButton);
+    buttonList.push(routeButton);
+    buttonList.push(clearMapUI);
 
     var homeControlDiv = document.createElement('div');
     homeControlDiv.index = 1;
@@ -744,11 +774,13 @@ function findClosestN(pt,numberOfResults) {
         
       }
       for(var j = 0; j < pointsWithinRadius.length; j++){
-        pointsWithinRadius[j].setIcon('https://www.google.com/mapfiles/marker_green.png');
+        pointsWithinRadius[j].setIcon(getCircleMarker());
         pointsWithinRadius[j].setMap(map);
         selectedMarkers.push(pointsWithinRadius[j]);
         overlayMarkers.push(pointsWithinRadius[j]);
       }
+
+      addIcon(point);
 
     }
 
@@ -796,6 +828,12 @@ function findClosestN(pt,numberOfResults) {
       clickedMarkers = [];
 
       clickedPolylinePoints = [];
+
+      for(var l = 0; l < buttonList.length; l++){
+        buttonList[l].style.backgroundColor = "white";
+      }
+
+      clickedButtonCount = 0;
   }
 
 
@@ -871,6 +909,9 @@ function findClosestN(pt,numberOfResults) {
  
 
  google.maps.event.addDomListener(window, 'load', initialize);
+ /*if(clickedButtonCount > 0){
+    google.maps.event.addListener(map, 'click', find_closest_marker);
+   }*/
 
 
  /*function myFunction(){
