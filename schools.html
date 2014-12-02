@@ -1,0 +1,111 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <meta name="viewport" content="initial-scale=1.0, user-scalable=no">
+    <meta charset="utf-8">
+    <title>Simple Polylines</title>
+    <style>
+      html, body, #map-canvas {
+        height: 100%;
+        margin: 0px;
+        padding: 0px
+      }
+      #controls {
+        margin-top:2px;
+        background-color:white;
+        padding:5px;
+    }
+    #formA {
+        margin-top:2px;
+        background-color:white;
+        padding:5px;
+    }
+    #N {
+        margin-top:2px;
+        background-color:white;
+        padding:5px;
+    }
+  .file_button_container,
+  .file_button_container input {
+       height: 47px;
+       width: 263px;
+   }
+
+   .file_button_container {
+       background: transparent url(http://i.stack.imgur.com/BT5AB.png) left top no-repeat;
+   }
+
+   .file_button_container input {
+       opacity: 0;
+   }
+
+    @import url('http://getbootstrap.com/dist/css/bootstrap.css');
+
+    </style>
+    <script src="jquery-2.1.1.js"></script>
+    <script src="jquery.csv.js"></script>
+    <script src="https://maps.googleapis.com/maps/api/js?v=3.exp"></script>
+
+
+
+    <script>
+  var schoolMarkers = [];
+  var radius = 0;
+  var numOfNeighbors = 0;
+  var clickedCount = 0;
+  var clickedPolylineCount = 0;
+  var map = null;
+  var excludeNonExistantSidewalks = 0;
+  var clickedPolylinePoints = [];
+  var clickedMarkers = [];
+  var selectedMarkers = [];
+  var polylinesList = [];
+  var roads = {};
+  var graph = {};
+  var overlayMarkers = [];
+  var csvClickedCount = 0;
+  var fileName = "MidtownMapWithAttributes.csv";
+  var dijkstraPoints = [];
+
+  function initialize(){
+
+
+    var schoolsFilePath = "http://www.prism.gatech.edu/~sravi40/SidewalksOnGoogleMaps/schoolsTemp.csv";
+    var image = 'http://www.prism.gatech.edu/~sravi40/SidewalksOnGoogleMaps/school-2.png';
+    xmlhttp = new XMLHttpRequest();
+    xmlhttp.open("GET",schoolsFilePath,false);
+    xmlhttp.send(null);
+
+
+    var mapOptions = {
+      zoom: 10,
+      center: new google.maps.LatLng(-84.949667,31.356795),
+      mapTypeId: google.maps.MapTypeId.TERRAIN
+    };
+
+    map = new google.maps.Map(document.getElementById('map-canvas'),mapOptions);
+    map.markers = [];
+    var schoolFileContent = xmlhttp.responseText;
+    var schoolFileArray = schoolFileContent.split(',');
+    for(var j = 0; j < schoolFileArray.length - 1; j = j+2){
+      var latlng = new google.maps.LatLng(schoolFileArray[j],schoolFileArray[j+1]);
+      var schoolMarker = new google.maps.Marker({
+            position: latlng,
+            map: map,
+            icon: image
+          });
+      schoolMarkers.push(schoolMarker);
+      schoolMarker.setMap(map);
+    }
+
+  }
+
+  google.maps.event.addDomListener(window, 'load', initialize);
+  </script>
+
+</head>
+<body>
+  <div id="map-canvas">
+  </div>
+</body>
+</html>
