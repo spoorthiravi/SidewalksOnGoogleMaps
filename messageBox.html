@@ -1,0 +1,32 @@
+<!DOCTYPE html>
+<html>
+	<style>
+		.messageBox {  
+		width:300px;  
+		padding:10px;  
+		border:1px solid #666;    
+		position:fixed;
+    	top: 50%;
+    	left: 50%;
+		display:none;
+		z-index:999;  
+		-webkit-border-radius: 6px; -moz-border-radius: 6px;} 
+	</style>
+	<script src="http://code.jquery.com/jquery-latest.js"></script> 
+  	<body>
+  		<div><button type="button" onclick="myFunction()">Click me!</button></div>
+		<div class="messageBox"; id = "messageBox" >Here we say something very important!</div> 
+	</body>
+   
+<script>  
+
+function myFunction(){
+	document.getElementById("messageBox").style.display = "block";
+	document.getElementById('messageBox').innerHTML= "hello";
+	setTimeout(function() {  
+		$('.messageBox').fadeOut('fast');  
+	}, 5000); // <-- time in milliseconds  
+}
+   
+</script> 
+</html> 
